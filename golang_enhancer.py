@@ -22,8 +22,8 @@ logo = r'''
 '''
 
 str_execute_failed = '''
-执行失败：该程序不是一个带符号的Golang程序。
-Execute failed: This program is not a Golang program with symbols.
+执行失败：该程序不是一个带符号的Golang程序或该Golang版本不支持（通常是因为太低）。
+Execute failed: This program is not a Golang program with symbols or the Golang version is not supported (usually because too low).
 '''
 
 str_golang_version = '''
@@ -80,6 +80,7 @@ class GolangEnhancer(plugin_t):
         print(logo)
 
         go_ver = get_name_ea(BADADDR, 'runtime.buildVersion.str')
+
         if go_ver == BADADDR:
             print(str_execute_failed)
             return
@@ -89,6 +90,7 @@ class GolangEnhancer(plugin_t):
 
         fn_def = 0
         fn_und = 0
+
         for i in range(get_func_qty()):
             func = getn_func(i)
             name = get_valid_name(get_func_name(func.start_ea))
@@ -99,21 +101,20 @@ class GolangEnhancer(plugin_t):
             ea = insn.ea
 
             if idc.print_insn_mnem(ea) == 'jmp' and idc.print_operand(ea, 0) == name:
+                fn_def += 1
+
                 while argc < 9:
                     decode_prev_insn(insn, ea)
                     ea = insn.ea
 
-                    if idc.print_insn_mnem(ea) == 'nop':
-                        continue
-
                     if idc.print_insn_mnem(ea) == 'call' and idc.print_operand(ea, 0).startswith('runtime_morestack'):
                         break
 
-                    argc += 1
-                fn_def += 1
+                    if idc.print_insn_mnem(ea) == 'mov':
+                        argc += 1
             else:
-                argc = 0
                 fn_und += 1
+                argc = 0
 
             idc.SetType(func.start_ea, argv[argc].format(name))
 
